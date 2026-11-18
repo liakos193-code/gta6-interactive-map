@@ -27,10 +27,10 @@ def watcher_worker():
     while True:
         try:
             print("Ο Watcher ψάχνει για νέα του GTA 6...")
-
+            
             # Τρέχει τον κώδικα από το official_watcher.py
             official_watcher.run_official_watcher()
-
+            
             time.sleep(300)  # Περιμένει 5 λεπτά (300 δευτερόλεπτα) πριν ξαναψάξει
         except Exception as e:
             print(f"Σφάλμα στον watcher: {e}")
