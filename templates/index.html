@@ -18,7 +18,7 @@
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
     body { background: var(--bg); color: var(--text); height: 100vh; overflow: hidden; display: flex; }
 
-    /* LEFT SIDEBAR (PRO ONLY + ADMIN) */
+    /* LEFT SIDEBAR (VISIBLE TO ALL: LOCKED PREVIEW FOR FREE, FULL CONTROLS FOR PRO) */
     #sidebar {
       width: 350px;
       background: var(--panel);
@@ -27,7 +27,6 @@
       flex-direction: column;
       z-index: 20;
     }
-    #sidebar.hidden { display: none; }
 
     .brand {
       padding: 18px 20px;
@@ -45,8 +44,30 @@
       background: linear-gradient(90deg, var(--gold), #ff8800);
       color: #000;
     }
+    .free-badge {
+      display: inline-block;
+      margin-top: 6px;
+      padding: 3px 10px;
+      font-size: 11px;
+      font-weight: 700;
+      border-radius: 999px;
+      background: #1e2438;
+      color: var(--cyan);
+      border: 1px solid var(--panel-border);
+    }
 
     .sidebar-scroll { padding: 16px 20px; overflow-y: auto; flex: 1; }
+
+    /* Free Upgrade Box inside Sidebar */
+    .upgrade-card {
+      background: linear-gradient(135deg, rgba(255,46,147,0.16), rgba(0,229,255,0.12));
+      border: 1px solid rgba(255,46,147,0.45);
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin-bottom: 16px;
+    }
+    .upgrade-card p { font-size: 12px; color: var(--muted); line-height: 1.4; margin-bottom: 10px; }
+    .upgrade-actions { display: flex; gap: 8px; }
 
     .progress-box { margin-bottom: 18px; }
     .progress-header { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
@@ -64,10 +85,27 @@
       border-radius: 8px;
       margin-bottom: 8px;
       cursor: pointer;
+      transition: border-color 0.2s;
     }
-    .toggle-left { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 500; }
-    .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+    .toggle-row:hover { border-color: var(--cyan); }
+    .toggle-left { display: flex; align-items: center; gap: 9px; font-size: 13px; font-weight: 600; color: var(--text); }
+    .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
     .cat-count { font-size: 11px; color: var(--muted); background: #0f1320; padding: 2px 7px; border-radius: 6px; }
+
+    /* Clean Lock Pill on the right (Never hides or obscures the title!) */
+    .lock-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: rgba(255, 183, 3, 0.14);
+      border: 1px solid rgba(255, 183, 3, 0.45);
+      color: var(--gold);
+      font-size: 11px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
 
     .switch { position: relative; width: 38px; height: 20px; flex-shrink: 0; }
     .switch input { opacity: 0; width: 0; height: 0; }
@@ -120,24 +158,7 @@
     .pin:hover { transform: translate(-50%, -100%) rotate(-45deg) scale(1.22); z-index: 50; }
     .pin.found { opacity: 0.4; filter: grayscale(0.6); }
 
-    /* FREE FLOATING OVERLAY */
-    #free-overlay {
-      position: absolute;
-      top: 18px; left: 18px;
-      background: rgba(19, 23, 36, 0.92);
-      backdrop-filter: blur(10px);
-      border: 1px solid var(--panel-border);
-      padding: 16px 20px;
-      border-radius: 12px;
-      max-width: 320px;
-      z-index: 30;
-      box-shadow: 0 12px 30px rgba(0,0,0,0.6);
-    }
-    #free-overlay h2 { font-size: 16px; margin-bottom: 4px; }
-    #free-overlay p { font-size: 12px; color: var(--muted); line-height: 1.45; margin-bottom: 12px; }
-    .free-actions { display: flex; gap: 8px; }
-
-    /* PRO LIVE INTEL & NEWS DRAWER (Source Name | Date | Information You Need to Know) */
+    /* PRO LIVE INTEL & NEWS DRAWER */
     #intel-drawer {
       position: fixed;
       top: 18px;
@@ -235,15 +256,25 @@
 </head>
 <body>
 
-  <!-- PRO SIDEBAR (ΚΡΥΜΜΕΝΟ ΕΝΤΕΛΩΣ ΣΤΟΥΣ FREE ΧΡΗΣΤΕΣ) -->
-  <aside id="sidebar" class="hidden">
+  <!-- SIDEBAR: ΟΙ FREE ΧΡΗΣΤΕΣ ΒΛΕΠΟΥΝ ΟΛΟΥΣ ΤΟΥΣ ΤΙΤΛΟΥΣ ΚΑΘΑΡΑ ΜΕ ΛΟΥΚΕΤΟ 🔒 -->
+  <aside id="sidebar">
     <div class="brand">
       <h1>GTA VI — LEONIDA MAP</h1>
-      <span class="pro-badge" id="role-badge">★ PRO PASS ACTIVE</span>
+      <span class="free-badge" id="role-badge">FREE MAP VIEW</span>
     </div>
 
     <div class="sidebar-scroll">
-      <div class="progress-box">
+      <!-- FREE UPGRADE BANNER (ΚΡΥΒΕΤΑΙ ΟΤΑΝ ΓΙΝΕΙ PRO) -->
+      <div class="upgrade-card" id="free-upgrade-box">
+        <p>Explore the live Leonida & Vice City map. Unlock <strong>PRO Pass</strong> to activate all locked switches, secret locations, custom pins & live embargo/review intel.</p>
+        <div class="upgrade-actions">
+          <button class="btn btn-primary" style="margin-top:0;" onclick="startStripeCheckout()">Unlock All ($9.99)</button>
+          <button class="btn btn-ghost" style="margin-top:0; width:auto;" onclick="restorePro()">Restore</button>
+        </div>
+      </div>
+
+      <!-- PRO PROGRESS BAR (ΜΟΝΟ ΓΙΑ PRO) -->
+      <div class="progress-box" id="pro-progress-box" style="display:none;">
         <div class="progress-header">
           <span>100% Completion Progress</span>
           <span id="progress-text">0 / 0 (0%)</span>
@@ -251,33 +282,16 @@
         <div class="progress-track"><div class="progress-fill" id="progress-bar"></div></div>
       </div>
 
-      <div class="section-title">Category Switches</div>
+      <div class="section-title">Map Categories</div>
       <div id="category-switches"></div>
 
       <div class="section-title">PRO Intel & Map Tools</div>
 
-      <!-- PRO ΔΙΑΚΟΠΤΗΣ: LIVE NEWS, LEAKS, REVIEWS & SCORES -->
-      <label class="toggle-row" style="border-color: rgba(255,183,3,0.45);">
-        <span class="toggle-left">
-          <span class="dot" style="background:var(--gold);"></span>
-          <span>📰 Live Intel & News Feed</span>
-          <span class="cat-count" id="intel-count">0</span>
-        </span>
-        <span class="switch">
-          <input type="checkbox" id="intel-feed-toggle" checked onchange="toggleIntelDrawer(this.checked)" />
-          <span class="slider"></span>
-        </span>
-      </label>
+      <!-- LIVE INTEL & NEWS FEED ROW (LOCKED FOR FREE, TOGGLE FOR PRO) -->
+      <div id="intel-switch-container"></div>
 
-      <label class="toggle-row">
-        <span class="toggle-left">👁️ Hide Discovered</span>
-        <span class="switch">
-          <input type="checkbox" id="hide-found-toggle" onchange="renderPins()" />
-          <span class="slider"></span>
-        </span>
-      </label>
-
-      <button class="btn btn-cyan" onclick="enableCustomPinMode()">+ Add My Custom Pin</button>
+      <!-- HIDE DISCOVERED & CUSTOM PIN (LOCKED FOR FREE, ACTIVE FOR PRO) -->
+      <div id="extra-tools-container"></div>
 
       <!-- ADMIN PANEL (SHIFT + A) -->
       <div class="admin-box" id="admin-panel" style="display:none;">
@@ -305,23 +319,13 @@
 
   <!-- MAIN MAP AREA -->
   <main id="map-wrapper">
-    <!-- FREE USER OVERLAY: ΜΟΝΟ Ο ΧΑΡΤΗΣ + UPGRADE (ΧΩΡΙΣ ΔΙΑΚΟΠΤΕΣ) -->
-    <div id="free-overlay">
-      <h2>GTA 6 Interactive Map</h2>
-      <p>Live Leonida & Vice City map (auto-updates at official launch). Unlock <strong>PRO Pass</strong> for category switches, all Easter Eggs, Secret Weapons, Custom Pins & Live Embargo/Review Intel.</p>
-      <div class="free-actions">
-        <button class="btn btn-primary" style="margin-top:0;" onclick="startStripeCheckout()">Unlock PRO ($9.99)</button>
-        <button class="btn btn-ghost" style="margin-top:0; width:auto;" onclick="restorePro()">Restore</button>
-      </div>
-    </div>
-
     <div id="map-stage">
       <img id="map-image" src="{{ map_url }}" alt="GTA 6 Official Map" />
       <div id="pins-layer"></div>
     </div>
   </main>
 
-  <!-- PRO LIVE INTEL & NEWS DRAWER (Source Name | Date | Information You Need to Know) -->
+  <!-- PRO LIVE INTEL & NEWS DRAWER -->
   <section id="intel-drawer">
     <div class="intel-header">
       <h3>📰 GTA VI — LIVE INTEL, EMBARGO & SCORES</h3>
@@ -376,7 +380,6 @@
   let clickMode = null;
   let approvingPinId = null;
 
-  // Επιβεβαίωση email μετά το Stripe checkout για συγχρονισμό PRO Pass & Custom Pins σε όλες τις συσκευές
   const urlParams = new URLSearchParams(window.location.search);
   if (urlParams.get("success") === "true") {
     isPro = true;
@@ -403,35 +406,49 @@
     }
   });
 
+  function hasAccess() {
+    return isPro || Boolean(adminPass);
+  }
+
+  function promptUnlock(featureName) {
+    if (confirm(`🔒 "${featureName}" is included in the GTA 6 PRO Pass ($9.99 one-time).\n\nClick OK to unlock all categories, secret locations & live intel now!`)) {
+      startStripeCheckout();
+    }
+  }
+
   function applyRoleUI() {
-    const sidebar = document.getElementById("sidebar");
-    const freeOverlay = document.getElementById("free-overlay");
+    const badge = document.getElementById("role-badge");
+    const upgradeBox = document.getElementById("free-upgrade-box");
+    const progressBox = document.getElementById("pro-progress-box");
     const adminPanel = document.getElementById("admin-panel");
     const intelDrawer = document.getElementById("intel-drawer");
 
-    if (isPro || adminPass) {
-      sidebar.classList.remove("hidden");
-      freeOverlay.style.display = "none";
-      if (document.getElementById("intel-feed-toggle").checked) {
-        intelDrawer.classList.add("open");
-      }
-      if (adminPass) {
-        adminPanel.style.display = "block";
-        document.getElementById("role-badge").textContent = "⚡ ADMIN + PRO MODE";
-      }
+    if (hasAccess()) {
+      upgradeBox.style.display = "none";
+      progressBox.style.display = "block";
+      badge.className = "pro-badge";
+      badge.textContent = adminPass ? "⚡ ADMIN + PRO MODE" : "★ PRO PASS ACTIVE";
+      if (adminPass) adminPanel.style.display = "block";
     } else {
-      sidebar.classList.add("hidden");
+      upgradeBox.style.display = "block";
+      progressBox.style.display = "none";
       intelDrawer.classList.remove("open");
-      freeOverlay.style.display = "block";
+      badge.className = "free-badge";
+      badge.textContent = "FREE MAP PREVIEW";
     }
   }
 
   async function initApp() {
     applyRoleUI();
     await loadData();
-    if (isPro || adminPass) {
-      buildCategorySwitches();
+    buildCategorySwitches();
+    buildToolSwitches();
+    if (hasAccess()) {
       renderIntelNews();
+      const intelToggle = document.getElementById("intel-feed-toggle");
+      if (intelToggle && intelToggle.checked) {
+        document.getElementById("intel-drawer").classList.add("open");
+      }
     }
     renderPins();
   }
@@ -441,13 +458,12 @@
     const res = await fetch(`/api/locations?user_key=${encodeURIComponent(userKey)}&is_pro=${isPro}`, { headers });
     allLocations = await res.json();
 
-    if (isPro || adminPass) {
+    if (hasAccess()) {
       const cRes = await fetch(`/api/custom-pins?user_key=${encodeURIComponent(userKey)}`);
       customPins = await cRes.json();
 
       const nRes = await fetch(`/api/intel-news?is_pro=${isPro}`, { headers });
       intelNews = await nRes.json();
-      document.getElementById("intel-count").textContent = intelNews.length;
     }
     if (adminPass) {
       renderPendingAdmin();
@@ -455,16 +471,114 @@
     }
   }
 
-  // --- PRO INTEL & NEWS FEED RENDERING (Source Name | Date | Information You Need to Know) ---
+  function buildCategorySwitches() {
+    const container = document.getElementById("category-switches");
+    container.innerHTML = "";
+    const unlocked = hasAccess();
+
+    Object.entries(CATEGORY_CONFIG).forEach(([catName, meta]) => {
+      const count = catName === "My Custom Pins"
+        ? customPins.length
+        : allLocations.filter(l => l.status === "live" && l.category === catName).length;
+
+      const row = document.createElement(unlocked ? "label" : "div");
+      row.className = "toggle-row";
+
+      if (unlocked) {
+        row.innerHTML = `
+          <span class="toggle-left">
+            <span class="dot" style="background:${meta.color};"></span>
+            <span>${meta.icon} ${catName}</span>
+            <span class="cat-count">${count}</span>
+          </span>
+          <span class="switch">
+            <input type="checkbox" ${activeCategories.has(catName) ? "checked" : ""} onchange="toggleCategory('${catName}', this.checked)" />
+            <span class="slider"></span>
+          </span>
+        `;
+      } else {
+        // Ο τίτλος φαίνεται 100% καθαρά και ευανάγνωστα, με ένα διακριτικό λουκέτο 🔒 στα δεξιά!
+        row.onclick = () => promptUnlock(catName);
+        row.innerHTML = `
+          <span class="toggle-left">
+            <span class="dot" style="background:${meta.color};"></span>
+            <span>${meta.icon} ${catName}</span>
+          </span>
+          <span class="lock-pill">🔒 PRO</span>
+        `;
+      }
+      container.appendChild(row);
+    });
+  }
+
+  function buildToolSwitches() {
+    const intelContainer = document.getElementById("intel-switch-container");
+    const extraContainer = document.getElementById("extra-tools-container");
+    const unlocked = hasAccess();
+
+    if (unlocked) {
+      intelContainer.innerHTML = `
+        <label class="toggle-row" style="border-color: rgba(255,183,3,0.45);">
+          <span class="toggle-left">
+            <span class="dot" style="background:var(--gold);"></span>
+            <span>📰 Live Intel & News Feed</span>
+            <span class="cat-count">${intelNews.length}</span>
+          </span>
+          <span class="switch">
+            <input type="checkbox" id="intel-feed-toggle" checked onchange="toggleIntelDrawer(this.checked)" />
+            <span class="slider"></span>
+          </span>
+        </label>
+      `;
+      extraContainer.innerHTML = `
+        <label class="toggle-row">
+          <span class="toggle-left">👁️ Hide Discovered</span>
+          <span class="switch">
+            <input type="checkbox" id="hide-found-toggle" onchange="renderPins()" />
+            <span class="slider"></span>
+          </span>
+        </label>
+        <button class="btn btn-cyan" onclick="enableCustomPinMode()">+ Add My Custom Pin</button>
+      `;
+    } else {
+      intelContainer.innerHTML = `
+        <div class="toggle-row" style="border-color: rgba(255,183,3,0.45);" onclick="promptUnlock('Live Intel, Embargo & Scores Feed')">
+          <span class="toggle-left">
+            <span class="dot" style="background:var(--gold);"></span>
+            <span>📰 Live Intel & News Feed</span>
+          </span>
+          <span class="lock-pill">🔒 PRO</span>
+        </div>
+      `;
+      extraContainer.innerHTML = `
+        <div class="toggle-row" onclick="promptUnlock('Hide Discovered Progress Tracker')">
+          <span class="toggle-left">👁️ Hide Discovered</span>
+          <span class="lock-pill">🔒 PRO</span>
+        </div>
+        <div class="toggle-row" onclick="promptUnlock('Personal Custom Pins & Notes')">
+          <span class="toggle-left">📍 + Add My Custom Pin</span>
+          <span class="lock-pill">🔒 PRO</span>
+        </div>
+      `;
+    }
+  }
+
+  function toggleCategory(catName, enabled) {
+    if (enabled) activeCategories.add(catName);
+    else activeCategories.delete(catName);
+    renderPins();
+  }
+
   function toggleIntelDrawer(enabled) {
     const drawer = document.getElementById("intel-drawer");
-    if (enabled && (isPro || adminPass)) drawer.classList.add("open");
+    if (enabled && hasAccess()) drawer.classList.add("open");
     else drawer.classList.remove("open");
   }
 
   function closeIntelDrawer() {
     document.getElementById("intel-drawer").classList.remove("open");
-    document.getElementById("intel-feed-toggle").checked = false;
+    const t = document.getElementById("intel-feed-toggle");
+    if (t) t.checked = false;
   }
 
   function filterIntel(groupTag, btnEl) {
@@ -497,42 +611,10 @@
     });
   }
 
-  function buildCategorySwitches() {
-    const container = document.getElementById("category-switches");
-    container.innerHTML = "";
-
-    Object.entries(CATEGORY_CONFIG).forEach(([catName, meta]) => {
-      const count = catName === "My Custom Pins"
-        ? customPins.length
-        : allLocations.filter(l => l.status === "live" && l.category === catName).length;
-
-      const row = document.createElement("label");
-      row.className = "toggle-row";
-      row.innerHTML = `
-        <span class="toggle-left">
-          <span class="dot" style="background:${meta.color};"></span>
-          <span>${meta.icon} ${catName}</span>
-          <span class="cat-count">${count}</span>
-        </span>
-        <span class="switch">
-          <input type="checkbox" ${activeCategories.has(catName) ? "checked" : ""} onchange="toggleCategory('${catName}', this.checked)" />
-          <span class="slider"></span>
-        </span>
-      `;
-      container.appendChild(row);
-    });
-  }
-
-  function toggleCategory(catName, enabled) {
-    if (enabled) activeCategories.add(catName);
-    else activeCategories.delete(catName);
-    renderPins();
-  }
-
   function renderPins() {
     const layer = document.getElementById("pins-layer");
     layer.innerHTML = "";
-    if (!isPro && !adminPass) return;
+    if (!hasAccess()) return;
 
     const hideFound = document.getElementById("hide-found-toggle")?.checked || false;
     const liveLocs = allLocations.filter(l => l.status === "live");
