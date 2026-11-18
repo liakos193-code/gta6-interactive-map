@@ -51,6 +51,8 @@ def init_db():
 def check_admin(req):
     return req.headers.get("X-Admin-Password") == ADMIN_PASSWORD
 
+init_db()
+
 @app.route("/")
 def index():
     with sqlite3.connect(DB_NAME) as conn:
