@@ -4,6 +4,7 @@ import threading
 import time
 from flask import Flask, render_template, request, jsonify
 import stripe
+import official_watcher  # Κάνει import το δικό σου αρχείο για το αυτόματο ψάξιμο
 
 # ==========================================
 # 1. ΡΥΘΜΙΣΕΙΣ (ΦΑΚΕΛΟΣ ΓΙΑ ΤΟ RENDER & STRIPE)
@@ -11,8 +12,8 @@ import stripe
 DATA_DIR = "/var/data" if os.path.isdir("/var/data") else "."
 DB_NAME = os.path.join(DATA_DIR, "gta6_tracker.db")
 
-# Βάλε εδώ τα κλειδιά σου από το Stripe
-stripe.api_key = "sk_test_ΒΑΛΕ_ΤΟ_ΔΙΚΟ_ΣΟΥ_ΜΥΣΤΙΚΟ_ΚΛΕΙΔΙ"
+# Παίρνει το κλειδί δυναμικά από τα Environment Variables του Render
+stripe.api_key = os.environ.get("STRIPE_SECRET_KEY")
 YOUR_DOMAIN = 'https://gta6-interactive-map-1.onrender.com'
 
 # ==========================================
@@ -20,17 +21,15 @@ YOUR_DOMAIN = 'https://gta6-interactive-map-1.onrender.com'
 # ==========================================
 def watcher_worker():
     """
-    Αυτή η συνάρτηση θα τρέχει στο παρασκήνιο.
-    Βάλε εδώ μέσα τον ΔΙΚΟ ΣΟΥ κώδικα (scraping/RSS) που μαζεύει τα νέα!
+    Αυτή η συνάρτηση τρέχει στο παρασκήνιο.
+    Καλεί τον official watcher κάθε 5 λεπτά για να γεμίζει το site.
     """
     while True:
         try:
             print("Ο Watcher ψάχνει για νέα του GTA 6...")
 
-            # --- ΕΔΩ ΜΠΑΙΝΕΙ Ο ΔΙΚΟΣ ΣΟΥ ΚΩΔΙΚΑΣ ΑΝΑΖΗΤΗΣΗΣ ---
-
-
-            # --------------------------------------------------
+            # Τρέχει τον κώδικα από το official_watcher.py
+            official_watcher.run_official_watcher()
 
             time.sleep(300)  # Περιμένει 5 λεπτά (300 δευτερόλεπτα) πριν ξαναψάξει
         except Exception as e:
@@ -72,19 +71,31 @@ def init_db():
                 status TEXT DEFAULT 'live'
             )
         """)
-        # Πρόσθεσε εδώ και τα CREATE TABLE για intel_news κλπ αν δεν υπάρχουν
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS settings (
+                key TEXT PRIMARY KEY,
+                value TEXT
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS user_progress (
+                user_key TEXT,
+                location_id INTEGER,
+                PRIMARY KEY(user_key, location_id)
+            )
+        """)
         conn.commit()
 
 init_db()
 
 @app.route('/')
 def index():
-    # Επιστρέφει το index.html που φτιάξαμε νωρίτερα με το 30% Offer
+    # Επιστρέφει το index.html με τον διαδραστικό χάρτη
     return render_template('index.html', map_url="/static/map.jpg")
 
 @app.route('/api/locations', methods=['GET'])
 def get_locations():
-    # Παράδειγμα API που διαβάζει τα σημεία από τον μόνιμο δίσκο
+    # Διαβάζει τα σημεία από τον μόνιμο δίσκο
     with sqlite3.connect(DB_NAME) as conn:
         conn.row_factory = sqlite3.Row
         cur = conn.cursor()
@@ -95,6 +106,11 @@ def get_locations():
 @app.route('/create-checkout-session', methods=['POST'])
 def create_checkout_session():
     try:
+        # Επιπλέον έλεγχος για να δούμε στα logs αν το Render διάβασε όντως το κλειδί
+        if not stripe.api_key:
+            print("ΣΦΑΛΜΑ: Το STRIPE_SECRET_KEY δεν βρέθηκε στο Environment του Render!")
+            return jsonify(error="Stripe API key is missing"), 500
+
         session = stripe.checkout.Session.create(
             payment_method_types=['card'],
             line_items=[{
@@ -114,6 +130,7 @@ def create_checkout_session():
         )
         return jsonify({'url': session.url})
     except Exception as e:
+        print(f"Stripe Error: {e}")  # Τυπώνει το ακριβές λάθος στα logs του Render για βοήθεια
         return jsonify(error=str(e)), 403
 
 # ==========================================
