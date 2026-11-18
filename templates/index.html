@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>GTA 6 Interactive Map & 100% Tracker</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; display: flex; font-family: 'Segoe UI', Arial, sans-serif; background: #121212; color: white; height: 100vh; overflow: hidden; }
+        #sidebar { width: 320px; padding: 20px; background: #1a1a1a; height: 100vh; overflow-y: auto; border-right: 1px solid #333; position: relative; z-index: 2000; flex-shrink: 0; }
+        #map { flex-grow: 1; height: 100vh; background: #0b192c; position: relative; z-index: 1; }
+        h2 { margin-top: 0; color: #ff4081; letter-spacing: 0.5px; }
+        .filter-btn { display: block; width: 100%; padding: 10px 12px; margin: 6px 0; background: #262626; color: #eee; border: 1px solid #333; border-radius: 4px; cursor: pointer; text-align: left; }
+        .filter-btn:hover { background: #333; }
+        .filter-btn.active { background: #e91e63; border-color: #e91e63; font-weight: bold; }
+        .toggle-hide-btn { display: block; width: 100%; padding: 10px; margin-top: 14px; background: #1f2937; color: #93c5fd; border: 1px solid #3b82f6; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .toggle-hide-btn.active { background: #2563eb; color: white; }
+        .pro-box { margin-top: 20px; padding: 15px; background: #241734; border: 1px solid #e91e63; border-radius: 6px; }
+        .pro-box h4 { margin-top: 0; margin-bottom: 10px; }
+        .pro-perks { font-size: 12px; color: #ddd; padding-left: 18px; margin-bottom: 12px; line-height: 1.5; }
+        .buy-btn { display: block; text-align: center; padding: 10px; background: #e91e63; color: white; border: none; border-radius: 4px; font-weight: bold; width: 100%; cursor: pointer; font-size: 14px; }
+        .buy-btn:hover { background: #c2185b; }
+        .unlock-btn { margin-top: 8px; padding: 8px; background: #2c2c2c; color: #ddd; border: 1px solid #555; cursor: pointer; width: 100%; border-radius: 4px; }
+        .admin-footer { margin-top: 25px; padding-top: 12px; border-top: 1px solid #333; font-size: 12px; color: #777; text-align: center; }
+        #coords-box { position: fixed; bottom: 12px; right: 12px; background: rgba(0,0,0,0.85); padding: 8px 14px; border-radius: 4px; font-family: monospace; font-size: 13px; z-index: 2000; border: 1px solid #444; pointer-events: none; }
+    </style>
+</head>
+<body>
+
+<div id="sidebar">
+    <h2>GTA 6 Map Tracker</h2>
+    <p>100% Progress: <strong id="progress-text">0 / 0</strong></p>
+
+    <h4>Categories</h4>
+    <button type="button" class="filter-btn active" onclick="filterCategory('all', this)">All Locations</button>
+    <button type="button" class="filter-btn" onclick="filterCategory('collectible', this)">Collectibles</button>
+    <button type="button" class="filter-btn" onclick="filterCategory('weapon', this)">Weapons & Gear</button>
+    <button type="button" class="filter-btn" onclick="filterCategory('vehicle', this)">Vehicles & Boats</button>
+    <button type="button" class="filter-btn" onclick="filterCategory('easter_egg', this)">Easter Eggs & Secrets</button>
+
+    <button type="button" id="hide-found-btn" class="toggle-hide-btn" onclick="toggleHideFound()">👁️ Hide Found (PRO)</button>
+
+    <div class="pro-box">
+        <h4>Plan: <span id="plan-status">FREE (Limit: {{ free_limit }})</span></h4>
+        <ul class="pro-perks">
+            <li>Unlimited 100% Checklist Sync</li>
+            <li>Hide Completed Pins on Map</li>
+            <li>In-Game Location Screenshots</li>
+        </ul>
+        <button type="button" onclick="startStripeCheckout()" class="buy-btn">Upgrade to PRO ($9.99)</button>
+        <button type="button" onclick="activateWithEmail()" class="unlock-btn">Already Paid? Unlock with Email</button>
+    </div>
+
+    <div class="admin-footer">
+        <span id="admin-status" style="cursor:pointer; text-decoration:underline;" onclick="enableAdmin()">Admin Login</span>
+    </div>
+</div>
+
+<div id="map"></div>
+<div id="coords-box">X: 0 | Y: 0</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    let isPro = false;
+    let hideFound = false;
+    let adminPass = sessionStorage.getItem("gta6_admin") || "";
+    let allLocations = [];
+    let markersLayer = L.layerGroup();
+    let currentFilter = 'all';
+
+    // Δημιουργία μοναδικού ID ανά χρήστη ή σύνδεση με PRO email
+    let userKey = localStorage.getItem("gta6_pro_email") || localStorage.getItem("gta6_guest_id");
+    if (!userKey) {
+        userKey = "guest_" + Math.random().toString(36).substring(2, 12);
+        localStorage.setItem("gta6_guest_id", userKey);
+    }
+
+    const map = L.map('map', { crs: L.CRS.Simple, minZoom: -1 });
+    const bounds = [[0, 0], [1000, 1000]];
+    L.imageOverlay('{{ map_url }}', bounds).addTo(map);
+    map.fitBounds(bounds);
+    markersLayer.addTo(map);
+
+    map.on('mousemove', function(e) {
+        document.getElementById('coords-box').innerText = `X: ${Math.round(e.latlng.lng)} | Y: ${Math.round(e.latlng.lat)}`;
+    });
+
+    async function checkSavedPro() {
+        const savedEmail = localStorage.getItem("gta6_pro_email");
+        if (!savedEmail) return;
+        const res = await fetch('/api/verify-pro', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: savedEmail })
+        });
+        const data = await res.json();
+        if (data.is_pro) {
+            isPro = true;
+            userKey = savedEmail;
+            document.getElementById('plan-status').innerText = "PRO UNLIMITED 👑";
+        }
+    }
+
+    async function loadLocations() {
+        const res = await fetch(`/api/locations?user_key=${encodeURIComponent(userKey)}`);
+        allLocations = await res.json();
+        renderMarkers();
+    }
+
+    function renderMarkers() {
+        markersLayer.clearLayers();
+        let foundCount = 0;
+
+        allLocations.forEach(loc => {
+            if (loc.found) foundCount++;
+            if (hideFound && loc.found) return;
+            if (currentFilter !== 'all' && loc.category !== currentFilter) return;
+
+            const marker = L.marker([loc.y, loc.x], {
+                opacity: loc.found ? 0.35 : 1.0,
+                draggable: Boolean(adminPass)
+            });
+
+            if (adminPass) {
+                marker.on('dragend', async function(e) {
+                    const newPos = e.target.getLatLng();
+                    await fetch(`/api/move/${loc.id}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-Admin-Password': adminPass },
+                        body: JSON.stringify({ x: Math.round(newPos.lng), y: Math.round(newPos.lat) })
+                    });
+                    loadLocations();
+                });
+            }
+
+            let screenshotHtml = "";
+            if (loc.image_url) {
+                screenshotHtml = isPro
+                    ? `<img src="${loc.image_url}" style="width:100%; border-radius:4px; margin-bottom:8px;">`
+                    : `<div style="background:#241734; color:#ff80ab; padding:6px; font-size:11px; border-radius:4px; margin-bottom:8px;">🔒 Exact screenshot available in PRO</div>`;
+            }
+
+            const deleteBtnHtml = adminPass
+                ? `<button type="button" onclick="deleteLocation(${loc.id})" style="background:#d32f2f; color:white; border:none; padding:5px 8px; margin-left:4px; cursor:pointer; border-radius:3px;">🗑️</button>`
+                : "";
+
+            marker.bindPopup(`
+                <div style="color: #111; min-width: 200px;">
+                    <h3 style="margin: 0 0 6px 0;">${loc.title}</h3>
+                    ${screenshotHtml}
+                    <p style="margin: 0 0 8px 0; font-size: 13px;">${loc.description}</p>
+                    <small style="color: #666;">Coords: X=${Math.round(loc.x)}, Y=${Math.round(loc.y)}</small><br><br>
+                    <button type="button" onclick="toggleFound(${loc.id})" style="padding: 6px 10px; cursor: pointer;">
+                        ${loc.found ? '❌ Unmark Found' : '✅ Mark as Found'}
+                    </button>
+                    ${deleteBtnHtml}
+                </div>
+            `);
+            markersLayer.addLayer(marker);
+        });
+
+        document.getElementById('progress-text').innerText = `${foundCount} / ${allLocations.length}`;
+    }
+
+    function toggleHideFound() {
+        if (!isPro) {
+            alert("Hide Found is a PRO feature! Upgrade to PRO to declutter your map.");
+            return;
+        }
+        hideFound = !hideFound;
+        const btn = document.getElementById('hide-found-btn');
+        btn.classList.toggle('active', hideFound);
+        btn.innerText = hideFound ? "🙈 Hiding Found Pins" : "👁️ Hide Found (PRO)";
+        renderMarkers();
+    }
+
+    async function toggleFound(id) {
+        const res = await fetch(`/api/toggle/${id}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_key: userKey, is_pro: isPro })
+        });
+        const data = await res.json();
+        if (res.status === 403) {
+            alert(data.message);
+            return;
+        }
+        loadLocations();
+    }
+
+    async function deleteLocation(id) {
+        if (!confirm("Delete this pin permanently?")) return;
+        await fetch(`/api/delete/${id}`, {
+            method: 'DELETE',
+            headers: { 'X-Admin-Password': adminPass }
+        });
+        loadLocations();
+    }
+
+    function filterCategory(cat, btn) {
+        currentFilter = cat;
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        renderMarkers();
+    }
+
+    async function startStripeCheckout() {
+        const res = await fetch('/create-checkout-session', { method: 'POST' });
+        const data = await res.json();
+        if (data.url) window.location.href = data.url;
+        else alert("Stripe error: " + (data.error || "Check configuration"));
+    }
+
+    async function activateWithEmail() {
+        const email = prompt("Enter the email address you used at Stripe checkout:");
+        if (!email) return;
+        const res = await fetch('/api/verify-pro', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+        });
+        const data = await res.json();
+        if (data.is_pro) {
+            isPro = true;
+            userKey = email.toLowerCase().trim();
+            localStorage.setItem("gta6_pro_email", userKey);
+            document.getElementById('plan-status').innerText = "PRO UNLIMITED 👑";
+            alert("PRO unlocked! Your progress is now synced to your email.");
+            loadLocations();
+        } else {
+            alert("No paid order found for this email yet.");
+        }
+    }
+
+    function enableAdmin() {
+        const pass = prompt("Enter Admin Password:");
+        if (!pass) return;
+        adminPass = pass;
+        sessionStorage.setItem("gta6_admin", pass);
+        document.getElementById('admin-status').innerText = "Admin Mode Active 🔓";
+        renderMarkers();
+    }
+
+    map.on('contextmenu', async function(e) {
+        if (!adminPass) return;
+        const title = prompt("Location / Item Name:");
+        if (!title) return;
+        const category = prompt("Category (collectible, weapon, vehicle, easter_egg):", "collectible");
+        const description = prompt("Description:");
+        const image_url = prompt("Screenshot URL (optional, PRO only):", "");
+
+        const res = await fetch('/api/locations', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Admin-Password': adminPass },
+            body: JSON.stringify({ title, category, description, image_url, x: Math.round(e.latlng.lng), y: Math.round(e.latlng.lat) })
+        });
+        if (res.status === 401) {
+            alert("Wrong Admin Password!");
+            adminPass = "";
+            sessionStorage.removeItem("gta6_admin");
+        }
+        loadLocations();
+    });
+
+    if (adminPass) document.getElementById('admin-status').innerText = "Admin Mode Active 🔓";
+    checkSavedPro().then(loadLocations);
+</script>
+</body>
+</html>
