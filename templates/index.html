@@ -1,221 +1,269 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>GTA 6 Interactive Map — Leonida & Vice City</title>
-  <style>
-    :root {
-      --bg: #0b0d14;
-      --panel: #131724;
-      --panel-border: #252b42;
-      --pink: #ff2e93;
-      --cyan: #00e5ff;
-      --gold: #ffb703;
-      --text: #f1f5f9;
-      --muted: #94a3b8;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
-    body { background: var(--bg); color: var(--text); height: 100vh; overflow: hidden; display: flex; }
-
-    /* LEFT SIDEBAR */
-    #sidebar { width: 350px; background: var(--panel); border-right: 1px solid var(--panel-border); display: flex; flex-direction: column; z-index: 20; }
-    .brand { padding: 18px 20px; background: linear-gradient(135deg, rgba(255,46,147,0.18), rgba(0,229,255,0.12)); border-bottom: 1px solid var(--panel-border); }
-    .brand h1 { font-size: 18px; letter-spacing: 0.5px; }
-    .pro-badge { display: inline-block; margin-top: 6px; padding: 3px 10px; font-size: 11px; font-weight: 700; border-radius: 999px; background: linear-gradient(90deg, var(--gold), #ff8800); color: #000; }
-    .free-badge { display: inline-block; margin-top: 6px; padding: 3px 10px; font-size: 11px; font-weight: 700; border-radius: 999px; background: #1e2438; color: var(--cyan); border: 1px solid var(--panel-border); }
-    .sidebar-scroll { padding: 16px 20px; overflow-y: auto; flex: 1; }
-    .upgrade-card { background: linear-gradient(135deg, rgba(255,46,147,0.16), rgba(0,229,255,0.12)); border: 1px solid rgba(255,46,147,0.45); border-radius: 10px; padding: 12px 14px; margin-bottom: 16px; }
-    .upgrade-card p { font-size: 12px; color: var(--muted); line-height: 1.4; margin-bottom: 10px; }
-    .upgrade-actions { display: flex; flex-direction: column; gap: 10px; }
-    .offer-price-row { display: flex; align-items: center; gap: 8px; }
-    .offer-badge { background: var(--gold); color: #000; font-size: 10px; font-weight: 900; padding: 2px 6px; border-radius: 4px; letter-spacing: 0.5px; }
-    .old-price { text-decoration: line-through; color: var(--muted); font-size: 12px; }
-    .new-price { color: var(--cyan); font-size: 16px; font-weight: 800; }
-    .action-buttons { display: flex; gap: 8px; }
-    .progress-box { margin-bottom: 18px; }
-    .progress-header { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
-    .progress-track { height: 8px; background: #1e2438; border-radius: 999px; overflow: hidden; }
-    .progress-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--pink), var(--cyan)); transition: width 0.3s; }
-    .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin: 14px 0 8px; }
-    .toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 9px 12px; background: #181d2e; border: 1px solid var(--panel-border); border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: border-color 0.2s; }
-    .toggle-row:hover { border-color: var(--cyan); }
-    .toggle-left { display: flex; align-items: center; gap: 9px; font-size: 13px; font-weight: 600; color: var(--text); }
-    .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
-    .cat-count { font-size: 11px; color: var(--muted); background: #0f1320; padding: 2px 7px; border-radius: 6px; }
-    .lock-pill { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 999px; background: rgba(255, 183, 3, 0.14); border: 1px solid rgba(255, 183, 3, 0.45); color: var(--gold); font-size: 11px; font-weight: 700; flex-shrink: 0; }
-    .switch { position: relative; width: 38px; height: 20px; flex-shrink: 0; }
-    .switch input { opacity: 0; width: 0; height: 0; }
-    .slider { position: absolute; inset: 0; background: #2d3552; border-radius: 999px; transition: 0.25s; }
-    .slider:before { content: ""; position: absolute; height: 14px; width: 14px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: 0.25s; }
-    input:checked + .slider { background: var(--cyan); }
-    input:checked + .slider:before { transform: translateX(18px); background: #000; }
-    .btn { width: 100%; padding: 10px 14px; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 13px; transition: 0.2s; margin-top: 8px; }
-    .btn-primary { background: linear-gradient(90deg, var(--pink), #ff5e62); color: #fff; }
-    .btn-cyan { background: var(--cyan); color: #000; }
-    .btn-gold { background: var(--gold); color: #000; }
-    .btn-ghost { background: #1e2438; color: var(--text); border: 1px solid var(--panel-border); }
-    .btn:hover { opacity: 0.92; transform: translateY(-1px); }
-
-    /* MAP VIEWPORT */
-    #map-wrapper { flex: 1; position: relative; overflow: hidden; background: #06080d; cursor: grab; user-select: none; }
-    #map-wrapper:active { cursor: grabbing; }
-    #map-stage { position: absolute; top: 0; left: 0; transform-origin: 0 0; }
-    #map-image { display: block; width: 1600px; height: auto; pointer-events: none; }
-    .pin { position: absolute; width: 28px; height: 28px; border-radius: 50% 50% 50% 0; transform-origin: center; transform: translate(-50%, -100%) rotate(-45deg); display: flex; align-items: center; justify-content: center; cursor: pointer; border: 2px solid #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.7); transition: transform 0.15s, opacity 0.2s; }
-    .pin span { transform: rotate(45deg); font-size: 12px; }
-    .pin:hover { transform: translate(-50%, -100%) rotate(-45deg) scale(1.22); z-index: 50; }
-    .pin.found { opacity: 0.4; filter: grayscale(0.6); }
-
-    /* PRO LIVE INTEL & NEWS DRAWER */
-    #intel-drawer { position: fixed; top: 18px; right: 18px; width: 440px; max-height: 82vh; background: rgba(19, 23, 36, 0.96); backdrop-filter: blur(12px); border: 1px solid var(--panel-border); border-radius: 12px; z-index: 35; box-shadow: 0 16px 40px rgba(0,0,0,0.75); display: none; flex-direction: column; overflow: hidden; }
-    #intel-drawer.open { display: flex; }
-    .intel-header { padding: 14px 16px; background: linear-gradient(90deg, rgba(255,183,3,0.18), rgba(255,46,147,0.15)); border-bottom: 1px solid var(--panel-border); display: flex; justify-content: space-between; align-items: center; }
-    .intel-header h3 { font-size: 14px; color: var(--gold); letter-spacing: 0.4px; }
-    .intel-tabs { display: flex; gap: 6px; padding: 8px 12px; overflow-x: auto; border-bottom: 1px solid var(--panel-border); background: #0f1320; }
-    .intel-tab { padding: 4px 9px; font-size: 11px; border-radius: 999px; border: 1px solid var(--panel-border); background: #181d2e; color: var(--muted); cursor: pointer; white-space: nowrap; }
-    .intel-tab.active { background: var(--gold); color: #000; font-weight: 700; border-color: var(--gold); }
-    .intel-list { padding: 12px; overflow-y: auto; flex: 1; }
-    .intel-card { background: #181d2e; border: 1px solid var(--panel-border); border-radius: 8px; padding: 10px 12px; margin-bottom: 9px; }
-    .intel-meta { display: flex; justify-content: space-between; align-items: center; font-size: 11px; margin-bottom: 5px; gap: 8px; }
-    .intel-source { font-weight: 700; color: var(--cyan); }
-    .intel-date { color: var(--gold); font-family: monospace; }
-    .intel-info { font-size: 12.5px; color: var(--text); line-height: 1.45; }
-    .intel-tag { display: inline-block; margin-top: 6px; font-size: 10px; padding: 2px 7px; border-radius: 4px; background: #0f1320; color: var(--muted); }
-    #pin-modal { position: fixed; bottom: 24px; right: 24px; width: 340px; background: var(--panel); border: 1px solid var(--panel-border); border-radius: 12px; padding: 18px; z-index: 40; box-shadow: 0 16px 40px rgba(0,0,0,0.75); display: none; }
-    #pin-modal img { width: 100%; height: 160px; object-fit: cover; border-radius: 8px; margin: 10px 0; }
-    .modal-cat { font-size: 11px; font-weight: 700; color: var(--cyan); text-transform: uppercase; }
-    .modal-close { float: right; cursor: pointer; color: var(--muted); font-size: 18px; }
-    .admin-box { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--panel-border); }
-    .pending-item { background: #1a2035; padding: 8px; border-radius: 6px; margin-bottom: 6px; font-size: 12px; line-height: 1.35; }
-    .alert-banner { background: rgba(255, 183, 3, 0.15); border: 1px solid var(--gold); padding: 10px; border-radius: 8px; margin-bottom: 10px; font-size: 12px; }
-  </style>
+    <meta charset="UTF-8">
+    <title>GTA 6 Interactive Map & 100% Tracker</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; display: flex; font-family: 'Segoe UI', Arial, sans-serif; background: #121212; color: white; height: 100vh; overflow: hidden; }
+        #sidebar { width: 320px; padding: 20px; background: #1a1a1a; height: 100vh; overflow-y: auto; border-right: 1px solid #333; position: relative; z-index: 2000; flex-shrink: 0; }
+        #map { flex-grow: 1; height: 100vh; background: #0b192c; position: relative; z-index: 1; }
+        h2 { margin-top: 0; color: #ff4081; letter-spacing: 0.5px; }
+        .filter-btn { display: block; width: 100%; padding: 10px 12px; margin: 6px 0; background: #262626; color: #eee; border: 1px solid #333; border-radius: 4px; cursor: pointer; text-align: left; }
+        .filter-btn:hover { background: #333; }
+        .filter-btn.active { background: #e91e63; border-color: #e91e63; font-weight: bold; }
+        .toggle-hide-btn { display: block; width: 100%; padding: 10px; margin-top: 14px; background: #1f2937; color: #93c5fd; border: 1px solid #3b82f6; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .toggle-hide-btn.active { background: #2563eb; color: white; }
+        .pro-box { margin-top: 20px; padding: 15px; background: #241734; border: 1px solid #e91e63; border-radius: 6px; }
+        .pro-box h4 { margin-top: 0; margin-bottom: 10px; }
+        .pro-perks { font-size: 12px; color: #ddd; padding-left: 18px; margin-bottom: 12px; line-height: 1.5; }
+        .buy-btn { display: block; text-align: center; padding: 10px; background: #e91e63; color: white; border: none; border-radius: 4px; font-weight: bold; width: 100%; cursor: pointer; font-size: 14px; }
+        .buy-btn:hover { background: #c2185b; }
+        .unlock-btn { margin-top: 8px; padding: 8px; background: #2c2c2c; color: #ddd; border: 1px solid #555; cursor: pointer; width: 100%; border-radius: 4px; }
+        .admin-footer { margin-top: 25px; padding-top: 12px; border-top: 1px solid #333; font-size: 12px; color: #777; text-align: center; }
+        #coords-box { position: fixed; bottom: 12px; right: 12px; background: rgba(0,0,0,0.85); padding: 8px 14px; border-radius: 4px; font-family: monospace; font-size: 13px; z-index: 2000; border: 1px solid #444; pointer-events: none; }
+    </style>
 </head>
 <body>
-  <aside id="sidebar">
-    <div class="brand"><h1>GTA VI — LEONIDA MAP</h1><span class="free-badge" id="role-badge">FREE MAP VIEW</span></div>
-    <div class="sidebar-scroll">
-      <div class="upgrade-card" id="free-upgrade-box">
-        <p>Explore the live Leonida & Vice City map. Unlock <strong>PRO Pass</strong> to activate all locked switches, secret locations, custom pins & live embargo/review intel.</p>
-        <div class="upgrade-actions">
-          <div class="offer-price-row"><span class="offer-badge">-30% OFFER</span><span class="old-price">$14.99</span><span class="new-price">$9.99</span></div>
-          <div class="action-buttons">
-            <button class="btn btn-primary" style="margin-top:0;" onclick="startStripeCheckout()">Unlock PRO</button>
-            <button class="btn btn-ghost" style="margin-top:0; width:auto;" onclick="restorePro()">Restore</button>
-          </div>
-        </div>
-      </div>
-      <div class="progress-box" id="pro-progress-box" style="display:none;"><div class="progress-header"><span>100% Completion Progress</span><span id="progress-text">0 / 0 (0%)</span></div><div class="progress-track"><div class="progress-fill" id="progress-bar"></div></div></div>
-      <div class="section-title">Map Categories</div><div id="category-switches"></div>
-      <div class="section-title">PRO Intel & Map Tools</div>
-      <div id="intel-switch-container"></div><div id="extra-tools-container"></div>
-      <div class="admin-box" id="admin-panel" style="display:none;">
-        <div class="section-title" style="color:var(--gold);">⚡ Admin Staging & Official Map</div>
-        <div id="pending-map-alert" class="alert-banner" style="display:none;"><strong>🗺️ New Official Rockstar Asset!</strong><br/><span id="pending-map-src" style="color:var(--muted); word-break:break-all;"></span><div style="display:flex; gap:6px; margin-top:6px;"><button class="btn btn-gold" style="padding:5px; margin-top:0;" onclick="resolvePendingMap('approve')">✅ Approve</button><button class="btn btn-ghost" style="padding:5px; margin-top:0;" onclick="resolvePendingMap('reject')">✕ Ignore</button></div></div>
-        <button class="btn btn-ghost" onclick="promptNewMapUrl()">🗺️ Set Official Map URL</button><button class="btn btn-ghost" onclick="enableAdminAddMode()">📍 + Add Live Pin on Map</button><button class="btn btn-ghost" onclick="promptAddIntelNews()">📰 + Post Breaking Intel/Score</button><button class="btn btn-ghost" onclick="promptBulkImport()">📦 Bulk JSON Import (Wikis)</button>
-        <div class="section-title">Pending Auto-Detected (<span id="pending-count">0</span>)</div><div id="pending-list"></div>
-      </div>
+
+<div id="sidebar">
+    <h2>GTA 6 Map Tracker</h2>
+    <p>100% Progress: <strong id="progress-text">0 / 0</strong></p>
+
+    <h4>Categories</h4>
+    <button type="button" class="filter-btn active" onclick="filterCategory('all', this)">All Locations</button>
+    <button type="button" class="filter-btn" onclick="filterCategory('collectible', this)">Collectibles</button>
+    <button type="button" class="filter-btn" onclick="filterCategory('weapon', this)">Weapons & Gear</button>
+    <button type="button" class="filter-btn" onclick="filterCategory('vehicle', this)">Vehicles & Boats</button>
+    <button type="button" class="filter-btn" onclick="filterCategory('easter_egg', this)">Easter Eggs & Secrets</button>
+
+    <button type="button" id="hide-found-btn" class="toggle-hide-btn" onclick="toggleHideFound()">👁️ Hide Found (PRO)</button>
+
+    <div class="pro-box">
+        <h4>Plan: <span id="plan-status">FREE (Limit: {{ free_limit }})</span></h4>
+        <ul class="pro-perks">
+            <li>Unlimited 100% Checklist Sync</li>
+            <li>Hide Completed Pins on Map</li>
+            <li>In-Game Location Screenshots</li>
+        </ul>
+        <button type="button" onclick="startStripeCheckout()" class="buy-btn">Upgrade to PRO ($9.99)</button>
+        <button type="button" onclick="activateWithEmail()" class="unlock-btn">Already Paid? Unlock with Email</button>
     </div>
-  </aside>
-  <main id="map-wrapper"><div id="map-stage"><img id="map-image" src="{{ map_url }}" alt="GTA 6 Official Map" /><div id="pins-layer"></div></div></main>
-  <section id="intel-drawer"><div class="intel-header"><h3>📰 GTA VI — LIVE INTEL, EMBARGO & SCORES</h3><span style="cursor:pointer; color:var(--muted); font-size:16px;" onclick="closeIntelDrawer()">✕</span></div><div class="intel-tabs" id="intel-tabs"><button class="intel-tab active" onclick="filterIntel('ALL', this)">All Sources</button><button class="intel-tab" onclick="filterIntel('Leaks & Embargo', this)">Leaks & Embargo</button><button class="intel-tab" onclick="filterIntel('Confirmed Previews', this)">Previews</button><button class="intel-tab" onclick="filterIntel('Reviewers', this)">Reviewers</button><button class="intel-tab" onclick="filterIntel('YouTubers', this)">YouTubers</button><button class="intel-tab" onclick="filterIntel('Score Aggregators', this)">Scores</button><button class="intel-tab" onclick="filterIntel('Corporate', this)">Corporate</button></div><div class="intel-list" id="intel-list"></div></section>
-  <div id="pin-modal"><span class="modal-close" onclick="closeModal()">✕</span><div class="modal-cat" id="m-cat">CATEGORY</div><h3 id="m-title" style="margin-top:4px; font-size:16px;">Title</h3><img id="m-img" src="" alt="" style="display:none;" /><p id="m-desc" style="font-size:13px; color:var(--muted); margin:8px 0; line-height:1.4;"></p><button class="btn btn-cyan" id="m-found-btn">✓ Mark as Discovered</button><button class="btn btn-ghost" id="m-delete-btn" style="display:none; color:#ff4d6d;">🗑️ Delete Pin (Admin)</button></div>
+
+    <div class="admin-footer">
+        <span id="admin-status" style="cursor:pointer; text-decoration:underline;" onclick="enableAdmin()">Admin Login</span>
+    </div>
+</div>
+
+<div id="map"></div>
+<div id="coords-box">X: 0 | Y: 0</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-  const CATEGORY_CONFIG = { "Easter Egg": { color: "#ff2e93", icon: "🥚" }, "Secret Weapon": { color: "#ff5400", icon: "🔫" }, "Hidden Collectible": { color: "#ffb703", icon: "💎" }, "100% Completion": { color: "#00e5ff", icon: "🏆" }, "Landmark": { color: "#38b000", icon: "📍" }, "My Custom Pins": { color: "#a855f7", icon: "⭐" } };
-  let isPro = localStorage.getItem("gta6_is_pro") === "true";
-  let userKey = localStorage.getItem("gta6_user_key");
-  if (!userKey) { userKey = "usr_" + Math.random().toString(36).substring(2, 12); localStorage.setItem("gta6_user_key", userKey); }
-  let adminPass = localStorage.getItem("gta6_admin_pass") || "";
-  let allLocations = [], customPins = [], intelNews = [], currentIntelGroup = "ALL", activeCategories = new Set(Object.keys(CATEGORY_CONFIG)), clickMode = null, approvingPinId = null;
-  const urlParams = new URLSearchParams(window.location.search);
-  if (urlParams.get("success") === "true") { isPro = true; localStorage.setItem("gta6_is_pro", "true"); window.history.replaceState({}, document.title, "/"); setTimeout(() => { const paidEmail = prompt("🎉 Payment successful! Confirm the email you used at Stripe to sync your PRO Pass & Custom Pins across all devices:"); if (paidEmail && paidEmail.includes("@")) { userKey = paidEmail.toLowerCase().trim(); localStorage.setItem("gta6_user_key", userKey); initApp(); } }, 400); }
-  document.addEventListener("keydown", (e) => { if (e.shiftKey && e.key.toLowerCase() === "a") { const pass = prompt("Enter Admin Password:"); if (pass) { adminPass = pass; localStorage.setItem("gta6_admin_pass", pass); initApp(); } } });
-  function hasAccess() { return isPro || Boolean(adminPass); }
-  function promptUnlock(featureName) { if (confirm(`🔒 "${featureName}" is included in the GTA 6 PRO Pass ($9.99 one-time).\n\nClick OK to unlock all categories, secret locations & live intel now!`)) startStripeCheckout(); }
-  function applyRoleUI() {
-    const badge = document.getElementById("role-badge"), upgradeBox = document.getElementById("free-upgrade-box"), progressBox = document.getElementById("pro-progress-box"), adminPanel = document.getElementById("admin-panel"), intelDrawer = document.getElementById("intel-drawer");
-    if (hasAccess()) { upgradeBox.style.display = "none"; progressBox.style.display = "block"; badge.className = "pro-badge"; badge.textContent = adminPass ? "⚡ ADMIN + PRO MODE" : "★ PRO PASS ACTIVE"; if (adminPass) adminPanel.style.display = "block"; }
-    else { upgradeBox.style.display = "block"; progressBox.style.display = "none"; intelDrawer.classList.remove("open"); badge.className = "free-badge"; badge.textContent = "FREE MAP PREVIEW"; }
-  }
-  async function initApp() { applyRoleUI(); await loadData(); buildCategorySwitches(); buildToolSwitches(); if (hasAccess()) { renderIntelNews(); const intelToggle = document.getElementById("intel-feed-toggle"); if (intelToggle && intelToggle.checked) document.getElementById("intel-drawer").classList.add("open"); } renderPins(); }
-  async function loadData() {
-    const headers = adminPass ? { "X-Admin-Password": adminPass } : {};
-    const res = await fetch(`/api/locations?user_key=${encodeURIComponent(userKey)}&is_pro=${isPro}`, { headers }); allLocations = await res.json();
-    if (hasAccess()) { const cRes = await fetch(`/api/custom-pins?user_key=${encodeURIComponent(userKey)}`); customPins = await cRes.json(); const nRes = await fetch(`/api/intel-news?is_pro=${isPro}`, { headers }); intelNews = await nRes.json(); }
-    if (adminPass) { renderPendingAdmin(); checkPendingOfficialMap(); }
-  }
-  function buildCategorySwitches() {
-    const container = document.getElementById("category-switches"); container.innerHTML = ""; const unlocked = hasAccess();
-    Object.entries(CATEGORY_CONFIG).forEach(([catName, meta]) => {
-      const count = catName === "My Custom Pins" ? customPins.length : allLocations.filter(l => l.status === "live" && l.category === catName).length;
-      const row = document.createElement(unlocked ? "label" : "div"); row.className = "toggle-row";
-      if (unlocked) row.innerHTML = `<span class="toggle-left"><span class="dot" style="background:${meta.color};"></span><span>${meta.icon} ${catName}</span><span class="cat-count">${count}</span></span><span class="switch"><input type="checkbox" ${activeCategories.has(catName) ? "checked" : ""} onchange="toggleCategory('${catName}', this.checked)" /><span class="slider"></span></span>`;
-      else { row.onclick = () => promptUnlock(catName); row.innerHTML = `<span class="toggle-left"><span class="dot" style="background:${meta.color};"></span><span>${meta.icon} ${catName}</span></span><span class="lock-pill">🔒 PRO</span>`; }
-      container.appendChild(row);
-    });
-  }
-  function buildToolSwitches() {
-    const intelContainer = document.getElementById("intel-switch-container"), extraContainer = document.getElementById("extra-tools-container"), unlocked = hasAccess();
-    if (unlocked) {
-      intelContainer.innerHTML = `<label class="toggle-row" style="border-color: rgba(255,183,3,0.45);"><span class="toggle-left"><span class="dot" style="background:var(--gold);"></span><span>📰 Live Intel & News Feed</span><span class="cat-count">${intelNews.length}</span></span><span class="switch"><input type="checkbox" id="intel-feed-toggle" checked onchange="toggleIntelDrawer(this.checked)" /><span class="slider"></span></span></label>`;
-      extraContainer.innerHTML = `<label class="toggle-row"><span class="toggle-left">👁️ Hide Discovered</span><span class="switch"><input type="checkbox" id="hide-found-toggle" onchange="renderPins()" /><span class="slider"></span></span></label><button class="btn btn-cyan" onclick="enableCustomPinMode()">+ Add My Custom Pin</button>`;
-    } else {
-      intelContainer.innerHTML = `<div class="toggle-row" style="border-color: rgba(255,183,3,0.45);" onclick="promptUnlock('Live Intel, Embargo & Scores Feed')"><span class="toggle-left"><span class="dot" style="background:var(--gold);"></span><span>📰 Live Intel & News Feed</span></span><span class="lock-pill">🔒 PRO</span></div>`;
-      extraContainer.innerHTML = `<div class="toggle-row" onclick="promptUnlock('Hide Discovered Progress Tracker')"><span class="toggle-left">👁️ Hide Discovered</span><span class="lock-pill">🔒 PRO</span></div><div class="toggle-row" onclick="promptUnlock('Personal Custom Pins & Notes')"><span class="toggle-left">📍 + Add My Custom Pin</span><span class="lock-pill">🔒 PRO</span></div>`;
+    let isPro = false;
+    let hideFound = false;
+    let adminPass = sessionStorage.getItem("gta6_admin") || "";
+    let allLocations = [];
+    let markersLayer = L.layerGroup();
+    let currentFilter = 'all';
+
+    // Δημιουργία μοναδικού ID ανά χρήστη ή σύνδεση με PRO email
+    let userKey = localStorage.getItem("gta6_pro_email") || localStorage.getItem("gta6_guest_id");
+    if (!userKey) {
+        userKey = "guest_" + Math.random().toString(36).substring(2, 12);
+        localStorage.setItem("gta6_guest_id", userKey);
     }
-  }
-  function toggleCategory(catName, enabled) { if (enabled) activeCategories.add(catName); else activeCategories.delete(catName); renderPins(); }
-  function toggleIntelDrawer(enabled) { const drawer = document.getElementById("intel-drawer"); if (enabled && hasAccess()) drawer.classList.add("open"); else drawer.classList.remove("open"); }
-  function closeIntelDrawer() { document.getElementById("intel-drawer").classList.remove("open"); const t = document.getElementById("intel-feed-toggle"); if (t) t.checked = false; }
-  function filterIntel(groupTag, btnEl) { currentIntelGroup = groupTag; document.querySelectorAll(".intel-tab").forEach(t => t.classList.remove("active")); if (btnEl) btnEl.classList.add("active"); renderIntelNews(); }
-  function renderIntelNews() {
-    const list = document.getElementById("intel-list"); list.innerHTML = "";
-    const filtered = currentIntelGroup === "ALL" ? intelNews : intelNews.filter(item => item.group_tag === currentIntelGroup);
-    filtered.forEach(item => { const card = document.createElement("div"); card.className = "intel-card"; const linkHtml = item.url ? `<a href="${item.url}" target="_blank" style="color:var(--cyan); text-decoration:none; margin-left:6px;">↗ Source</a>` : ""; card.innerHTML = `<div class="intel-meta"><span class="intel-source">📡 ${item.source_name}</span><span class="intel-date">📅 ${item.published_date}</span></div><div class="intel-info"><strong>Info:</strong> ${item.summary} ${linkHtml}</div><span class="intel-tag">${item.group_tag}</span>`; list.appendChild(card); });
-  }
-  function renderPins() {
-    const layer = document.getElementById("pins-layer"); layer.innerHTML = ""; if (!hasAccess()) return;
-    const hideFound = document.getElementById("hide-found-toggle")?.checked || false, liveLocs = allLocations.filter(l => l.status === "live");
-    const foundCount = liveLocs.filter(l => l.found).length, totalCount = liveLocs.length, pct = totalCount ? Math.round((foundCount / totalCount) * 100) : 0;
-    document.getElementById("progress-text").textContent = `${foundCount} / ${totalCount} (${pct}%)`; document.getElementById("progress-bar").style.width = `${pct}%`;
-    liveLocs.forEach(loc => { if (!activeCategories.has(loc.category) || (hideFound && loc.found)) return; const meta = CATEGORY_CONFIG[loc.category] || { color: "#00e5ff", icon: "📍" }; const pin = document.createElement("div"); pin.className = "pin" + (loc.found ? " found" : ""); pin.style.left = `${loc.x}%`; pin.style.top = `${loc.y}%`; pin.style.background = meta.color; pin.innerHTML = `<span>${meta.icon}</span>`; pin.onclick = (e) => { e.stopPropagation(); openModal(loc); }; layer.appendChild(pin); });
-    if (activeCategories.has("My Custom Pins")) customPins.forEach(cp => { const pin = document.createElement("div"); pin.className = "pin"; pin.style.left = `${cp.x}%`; pin.style.top = `${cp.y}%`; pin.style.background = CATEGORY_CONFIG["My Custom Pins"].color; pin.innerHTML = `<span>⭐</span>`; pin.onclick = async (e) => { e.stopPropagation(); if (confirm(`⭐ ${cp.title}\n${cp.notes || ""}\n\nClick OK to delete this custom pin, or Cancel to keep it.`)) { await fetch(`/api/custom-pins?id=${cp.id}&user_key=${encodeURIComponent(userKey)}`, { method: "DELETE" }); await initApp(); } }; layer.appendChild(pin); });
-  }
-  function openModal(loc) {
-    const modal = document.getElementById("pin-modal"); document.getElementById("m-cat").textContent = loc.category; document.getElementById("m-title").textContent = loc.title; document.getElementById("m-desc").textContent = loc.description || "Discovered location in Leonida.";
-    const img = document.getElementById("m-img"); if (loc.image_url) { img.src = loc.image_url; img.style.display = "block"; } else img.style.display = "none";
-    const foundBtn = document.getElementById("m-found-btn"); foundBtn.textContent = loc.found ? "✓ Discovered (Click to Undo)" : "Mark as Discovered"; foundBtn.onclick = async () => { await fetch(`/api/toggle/${loc.id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user_key: userKey, is_pro: isPro }) }); loc.found = !loc.found; closeModal(); renderPins(); };
-    const delBtn = document.getElementById("m-delete-btn"); if (adminPass) { delBtn.style.display = "block"; delBtn.onclick = async () => { if (!confirm("Delete this pin?")) return; await fetch(`/api/delete/${loc.id}`, { method: "DELETE", headers: { "X-Admin-Password": adminPass } }); closeModal(); await initApp(); }; } else delBtn.style.display = "none";
-    modal.style.display = "block";
-  }
-  function closeModal() { document.getElementById("pin-modal").style.display = "none"; }
-  function enableCustomPinMode() { clickMode = "custom_pin"; alert("Click anywhere on the map to place your personal PRO pin!"); }
-  async function checkPendingOfficialMap() { const res = await fetch("/api/pending-map", { headers: { "X-Admin-Password": adminPass } }); const data = await res.json(); const box = document.getElementById("pending-map-alert"); if (data.pending_map_url) { box.style.display = "block"; document.getElementById("pending-map-src").textContent = `${data.source} -> ${data.pending_map_url}`; } else box.style.display = "none"; }
-  async function resolvePendingMap(action) { await fetch("/api/pending-map", { method: "POST", headers: { "Content-Type": "application/json", "X-Admin-Password": adminPass }, body: JSON.stringify({ action }) }); if (action === "approve") window.location.reload(); else checkPendingOfficialMap(); }
-  function renderPendingAdmin() { const pending = allLocations.filter(l => l.status === "pending"); document.getElementById("pending-count").textContent = pending.length; const list = document.getElementById("pending-list"); list.innerHTML = ""; pending.forEach(p => { const div = document.createElement("div"); div.className = "pending-item"; div.innerHTML = `<strong>[${p.category}]</strong> ${p.title}<br/><div style="display:flex; gap:5px; margin-top:5px;"><button class="btn btn-cyan" style="padding:4px 6px; font-size:11px; margin-top:0;" onclick="startApprove(${p.id})">📍 Place PRO</button><button class="btn btn-ghost" style="padding:4px 6px; font-size:11px; margin-top:0; color:#ff4d6d;" onclick="deletePending(${p.id})">✕</button></div>`; list.appendChild(div); }); }
-  async function deletePending(id) { await fetch(`/api/delete/${id}`, { method: "DELETE", headers: { "X-Admin-Password": adminPass } }); await initApp(); }
-  function startApprove(id) { clickMode = "admin_approve"; approvingPinId = id; alert("Click the EXACT spot on the map to publish this PRO pin!"); }
-  function enableAdminAddMode() { clickMode = "admin_add"; alert("Click on the map where you want to add the new Live Pin!"); }
-  async function promptNewMapUrl() { const url = prompt("Paste the high-res Official GTA 6 Map image URL:"); if (!url) return; const res = await fetch("/api/update-map-url", { method: "POST", headers: { "Content-Type": "application/json", "X-Admin-Password": adminPass }, body: JSON.stringify({ map_url: url, lock: true }) }); const data = await res.json(); if (data.map_url) { document.getElementById("map-image").src = data.map_url; alert("Official map updated & locked!"); } }
-  async function promptAddIntelNews() { const source_name = prompt("Source Name (e.g. Metacritic, Jason Schreier, GameSpot, TGG):"); if (!source_name) return; const group_tag = prompt("Group (Leaks & Embargo, Confirmed Previews, Reviewers, YouTubers, Score Aggregators, Corporate):", "Score Aggregators"); const summary = prompt("Information You Need to Know:"); if (!summary) return; const url = prompt("Source URL (optional):") || ""; await fetch("/api/intel-news", { method: "POST", headers: { "Content-Type": "application/json", "X-Admin-Password": adminPass }, body: JSON.stringify({ source_name, group_tag, summary, url }) }); await initApp(); }
-  async function promptBulkImport() { const raw = prompt('Paste JSON array of pins (e.g. [{"title":"UFO","category":"Easter Egg","x":42.5,"y":61.2}]):'); if (!raw) return; try { const pins = JSON.parse(raw); const res = await fetch("/api/bulk-import", { method: "POST", headers: { "Content-Type": "application/json", "X-Admin-Password": adminPass }, body: JSON.stringify({ pins }) }); const data = await res.json(); alert(`Imported ${data.count} live pins!`); await initApp(); } catch (e) { alert("Invalid JSON format."); } }
-  async function startStripeCheckout() { const res = await fetch("/create-checkout-session", { method: "POST" }); const data = await res.json(); if (data.url) window.location.href = data.url; }
-  async function restorePro() { const email = prompt("Enter the email you used at Stripe checkout:"); if (!email) return; const res = await fetch("/api/verify-pro", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email }) }); const data = await res.json(); if (data.is_pro) { isPro = true; userKey = email.toLowerCase().trim(); localStorage.setItem("gta6_is_pro", "true"); localStorage.setItem("gta6_user_key", userKey); alert("PRO Pass Restored! Welcome back."); initApp(); } else alert("No PRO purchase found for this email."); }
-  const wrapper = document.getElementById("map-wrapper"), stage = document.getElementById("map-stage"); let scale = 0.75, panX = 100, panY = 20, isDragging = false, startX = 0, startY = 0;
-  function updateTransform() { stage.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`; } updateTransform();
-  wrapper.addEventListener("wheel", (e) => { e.preventDefault(); const delta = e.deltaY < 0 ? 1.12 : 0.88; scale = Math.min(Math.max(0.35, scale * delta), 3.5); updateTransform(); });
-  wrapper.addEventListener("mousedown", (e) => { isDragging = true; startX = e.clientX - panX; startY = e.clientY - panY; });
-  window.addEventListener("mousemove", (e) => { if (!isDragging) return; panX = e.clientX - startX; panY = e.clientY - startY; updateTransform(); });
-  window.addEventListener("mouseup", async (e) => {
-    if (!isDragging) return; isDragging = false; if (!clickMode) return;
-    const rect = stage.getBoundingClientRect(), xPct = Number((((e.clientX - rect.left) / rect.width) * 100).toFixed(2)), yPct = Number((((e.clientY - rect.top) / rect.height) * 100).toFixed(2));
-    if (xPct < 0 || xPct > 100 || yPct < 0 || yPct > 100) return;
-    const mode = clickMode; clickMode = null;
-    if (mode === "custom_pin") { const title = prompt("Custom Pin Title:"); if (!title) return; const notes = prompt("Notes (optional):") || ""; await fetch("/api/custom-pins", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user_key: userKey, is_pro: true, title, notes, x: xPct, y: yPct }) }); await initApp(); }
-    else if (mode === "admin_approve" && approvingPinId) { await fetch(`/api/approve/${approvingPinId}`, { method: "POST", headers: { "Content-Type": "application/json", "X-Admin-Password": adminPass }, body: JSON.stringify({ x: xPct, y: yPct, tier: "pro" }) }); approvingPinId = null; await initApp(); }
-    else if (mode === "admin_add") { const title = prompt("Pin Title:"); if (!title) return; const category = prompt("Category (Easter Egg, Secret Weapon, Hidden Collectible, 100% Completion, Landmark):", "Easter Egg"); const description = prompt("Description / Guide:") || ""; const image_url = prompt("Screenshot URL (optional):") || ""; await fetch("/api/locations", { method: "POST", headers: { "Content-Type": "application/json", "X-Admin-Password": adminPass }, body: JSON.stringify({ title, category, tier: "pro", description, image_url, x: xPct, y: yPct }) }); await initApp(); }
-  });
-  initApp();
+
+    const map = L.map('map', { crs: L.CRS.Simple, minZoom: -1 });
+    const bounds = [[0, 0], [1000, 1000]];
+    L.imageOverlay('{{ map_url }}', bounds).addTo(map);
+    map.fitBounds(bounds);
+    markersLayer.addTo(map);
+
+    map.on('mousemove', function(e) {
+        document.getElementById('coords-box').innerText = `X: ${Math.round(e.latlng.lng)} | Y: ${Math.round(e.latlng.lat)}`;
+    });
+
+    async function checkSavedPro() {
+        const savedEmail = localStorage.getItem("gta6_pro_email");
+        if (!savedEmail) return;
+        const res = await fetch('/api/verify-pro', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: savedEmail })
+        });
+        const data = await res.json();
+        if (data.is_pro) {
+            isPro = true;
+            userKey = savedEmail;
+            document.getElementById('plan-status').innerText = "PRO UNLIMITED 👑";
+        }
+    }
+
+    async function loadLocations() {
+        const res = await fetch(`/api/locations?user_key=${encodeURIComponent(userKey)}`);
+        allLocations = await res.json();
+        renderMarkers();
+    }
+
+    function renderMarkers() {
+        markersLayer.clearLayers();
+        let foundCount = 0;
+
+        allLocations.forEach(loc => {
+            if (loc.found) foundCount++;
+            if (hideFound && loc.found) return;
+            if (currentFilter !== 'all' && loc.category !== currentFilter) return;
+
+            const marker = L.marker([loc.y, loc.x], {
+                opacity: loc.found ? 0.35 : 1.0,
+                draggable: Boolean(adminPass)
+            });
+
+            if (adminPass) {
+                marker.on('dragend', async function(e) {
+                    const newPos = e.target.getLatLng();
+                    await fetch(`/api/move/${loc.id}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-Admin-Password': adminPass },
+                        body: JSON.stringify({ x: Math.round(newPos.lng), y: Math.round(newPos.lat) })
+                    });
+                    loadLocations();
+                });
+            }
+
+            let screenshotHtml = "";
+            if (loc.image_url) {
+                screenshotHtml = isPro
+                    ? `<img src="${loc.image_url}" style="width:100%; border-radius:4px; margin-bottom:8px;">`
+                    : `<div style="background:#241734; color:#ff80ab; padding:6px; font-size:11px; border-radius:4px; margin-bottom:8px;">🔒 Exact screenshot available in PRO</div>`;
+            }
+
+            const deleteBtnHtml = adminPass
+                ? `<button type="button" onclick="deleteLocation(${loc.id})" style="background:#d32f2f; color:white; border:none; padding:5px 8px; margin-left:4px; cursor:pointer; border-radius:3px;">🗑️</button>`
+                : "";
+
+            marker.bindPopup(`
+                <div style="color: #111; min-width: 200px;">
+                    <h3 style="margin: 0 0 6px 0;">${loc.title}</h3>
+                    ${screenshotHtml}
+                    <p style="margin: 0 0 8px 0; font-size: 13px;">${loc.description}</p>
+                    <small style="color: #666;">Coords: X=${Math.round(loc.x)}, Y=${Math.round(loc.y)}</small><br><br>
+                    <button type="button" onclick="toggleFound(${loc.id})" style="padding: 6px 10px; cursor: pointer;">
+                        ${loc.found ? '❌ Unmark Found' : '✅ Mark as Found'}
+                    </button>
+                    ${deleteBtnHtml}
+                </div>
+            `);
+            markersLayer.addLayer(marker);
+        });
+
+        document.getElementById('progress-text').innerText = `${foundCount} / ${allLocations.length}`;
+    }
+
+    function toggleHideFound() {
+        if (!isPro) {
+            alert("Hide Found is a PRO feature! Upgrade to PRO to declutter your map.");
+            return;
+        }
+        hideFound = !hideFound;
+        const btn = document.getElementById('hide-found-btn');
+        btn.classList.toggle('active', hideFound);
+        btn.innerText = hideFound ? "🙈 Hiding Found Pins" : "👁️ Hide Found (PRO)";
+        renderMarkers();
+    }
+
+    async function toggleFound(id) {
+        const res = await fetch(`/api/toggle/${id}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_key: userKey, is_pro: isPro })
+        });
+        const data = await res.json();
+        if (res.status === 403) {
+            alert(data.message);
+            return;
+        }
+        loadLocations();
+    }
+
+    async function deleteLocation(id) {
+        if (!confirm("Delete this pin permanently?")) return;
+        await fetch(`/api/delete/${id}`, {
+            method: 'DELETE',
+            headers: { 'X-Admin-Password': adminPass }
+        });
+        loadLocations();
+    }
+
+    function filterCategory(cat, btn) {
+        currentFilter = cat;
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        renderMarkers();
+    }
+
+    async function startStripeCheckout() {
+        const res = await fetch('/create-checkout-session', { method: 'POST' });
+        const data = await res.json();
+        if (data.url) window.location.href = data.url;
+        else alert("Stripe error: " + (data.error || "Check configuration"));
+    }
+
+    async function activateWithEmail() {
+        const email = prompt("Enter the email address you used at Stripe checkout:");
+        if (!email) return;
+        const res = await fetch('/api/verify-pro', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+        });
+        const data = await res.json();
+        if (data.is_pro) {
+            isPro = true;
+            userKey = email.toLowerCase().trim();
+            localStorage.setItem("gta6_pro_email", userKey);
+            document.getElementById('plan-status').innerText = "PRO UNLIMITED 👑";
+            alert("PRO unlocked! Your progress is now synced to your email.");
+            loadLocations();
+        } else {
+            alert("No paid order found for this email yet.");
+        }
+    }
+
+    function enableAdmin() {
+        const pass = prompt("Enter Admin Password:");
+        if (!pass) return;
+        adminPass = pass;
+        sessionStorage.setItem("gta6_admin", pass);
+        document.getElementById('admin-status').innerText = "Admin Mode Active 🔓";
+        renderMarkers();
+    }
+
+    map.on('contextmenu', async function(e) {
+        if (!adminPass) return;
+        const title = prompt("Location / Item Name:");
+        if (!title) return;
+        const category = prompt("Category (collectible, weapon, vehicle, easter_egg):", "collectible");
+        const description = prompt("Description:");
+        const image_url = prompt("Screenshot URL (optional, PRO only):", "");
+
+        const res = await fetch('/api/locations', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Admin-Password': adminPass },
+            body: JSON.stringify({ title, category, description, image_url, x: Math.round(e.latlng.lng), y: Math.round(e.latlng.lat) })
+        });
+        if (res.status === 401) {
+            alert("Wrong Admin Password!");
+            adminPass = "";
+            sessionStorage.removeItem("gta6_admin");
+        }
+        loadLocations();
+    });
+
+    if (adminPass) document.getElementById('admin-status').innerText = "Admin Mode Active 🔓";
+    checkSavedPro().then(loadLocations);
 </script>
 </body>
 </html>
