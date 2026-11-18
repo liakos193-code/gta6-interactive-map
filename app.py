@@ -1,5 +1,7 @@
 import os
 import sqlite3
+import threading
+import time
 import stripe
 from flask import Flask, render_template, request, jsonify
 
@@ -11,6 +13,7 @@ FREE_LIMIT = 20
 stripe.api_key = os.environ.get("STRIPE_SECRET_KEY", "")
 STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "change_this_secret_password")
+
 
 def init_db():
     with sqlite3.connect(DB_NAME) as conn:
@@ -46,12 +49,43 @@ def init_db():
             )
         """)
         cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('map_url', '/static/map.jpg')")
+
+        # Auto-migration για παλιούς πίνακες χωρίς user_key ή image_url
+        cursor.execute("PRAGMA table_info(user_progress)")
+        up_cols = [row[1] for row in cursor.fetchall()]
+        if "user_key" not in up_cols:
+            cursor.execute("ALTER TABLE user_progress ADD COLUMN user_key TEXT NOT NULL DEFAULT 'guest'")
+
+        cursor.execute("PRAGMA table_info(locations)")
+        loc_cols = [row[1] for row in cursor.fetchall()]
+        if "image_url" not in loc_cols:
+            cursor.execute("ALTER TABLE locations ADD COLUMN image_url TEXT DEFAULT ''")
+
         conn.commit()
+
+
+# Αρχικοποίηση βάσης κατά την εκκίνηση του server (Gunicorn / Render)
+init_db()
+
+
+# Background thread για αυτόματο έλεγχο επίσημων πηγών κάθε 10 λεπτά
+def background_watcher_loop():
+    time.sleep(15)
+    while True:
+        try:
+            from official_watcher import run_official_watcher
+            run_official_watcher()
+        except Exception as e:
+            print(f"[Official Watcher] Info/Error: {e}")
+        time.sleep(600)
+
+
+threading.Thread(target=background_watcher_loop, daemon=True).start()
+
 
 def check_admin(req):
     return req.headers.get("X-Admin-Password") == ADMIN_PASSWORD
 
-init_db()
 
 @app.route("/")
 def index():
@@ -61,6 +95,7 @@ def index():
         row = cursor.fetchone()
         map_url = row[0] if row else "/static/map.jpg"
     return render_template("index.html", free_limit=FREE_LIMIT, map_url=map_url)
+
 
 @app.route("/api/locations", methods=["GET"])
 def get_locations():
@@ -79,6 +114,7 @@ def get_locations():
 
     return jsonify(locations)
 
+
 @app.route("/api/locations", methods=["POST"])
 def add_location():
     if not check_admin(request):
@@ -93,6 +129,7 @@ def add_location():
         conn.commit()
     return jsonify({"status": "added"}), 201
 
+
 @app.route("/api/move/<int:loc_id>", methods=["POST"])
 def move_location(loc_id):
     if not check_admin(request):
@@ -104,6 +141,7 @@ def move_location(loc_id):
         conn.commit()
     return jsonify({"status": "moved"})
 
+
 @app.route("/api/delete/<int:loc_id>", methods=["DELETE"])
 def delete_location(loc_id):
     if not check_admin(request):
@@ -114,6 +152,7 @@ def delete_location(loc_id):
         cursor.execute("DELETE FROM user_progress WHERE location_id = ?", (loc_id,))
         conn.commit()
     return jsonify({"status": "deleted"})
+
 
 @app.route("/api/toggle/<int:loc_id>", methods=["POST"])
 def toggle_progress(loc_id):
@@ -143,6 +182,7 @@ def toggle_progress(loc_id):
             conn.commit()
             return jsonify({"status": "added"})
 
+
 @app.route("/create-checkout-session", methods=["POST"])
 def create_checkout_session():
     try:
@@ -166,6 +206,7 @@ def create_checkout_session():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
 @app.route("/webhook/stripe", methods=["POST"])
 def stripe_webhook():
     payload = request.get_data()
@@ -187,6 +228,7 @@ def stripe_webhook():
 
     return jsonify({"status": "ok"}), 200
 
+
 @app.route("/api/verify-pro", methods=["POST"])
 def verify_pro():
     email = request.json.get("email", "").lower().strip()
@@ -195,6 +237,7 @@ def verify_pro():
         cursor.execute("SELECT email FROM pro_users WHERE email = ?", (email,))
         row = cursor.fetchone()
     return jsonify({"is_pro": bool(row)})
+
 
 if __name__ == "__main__":
     init_db()
