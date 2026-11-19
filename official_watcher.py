@@ -1,9 +1,12 @@
+import os
 import re
 import json
 import sqlite3
 import urllib.request
 
-DB_NAME = "gta6_tracker.db"
+# Ίδια λογική με το app.py, ώστε να γράφουν και τα δύο στην ίδια βάση
+DATA_DIR = "/var/data" if os.path.isdir("/var/data") else "."
+DB_NAME = os.path.join(DATA_DIR, "gta6_tracker.db")
 
 # Τα επίσημα endpoints των μεγάλων εταιρειών (παρακολουθούνται αυτόματα)
 TARGET_TARGETS = [
@@ -129,6 +132,24 @@ def map_category(raw_cat):
 def run_official_watcher():
     with sqlite3.connect(DB_NAME) as conn:
         cursor = conn.cursor()
+
+        # Ο watcher ξεκινά πριν το init_db() του app.py, οπότε φτιάχνουμε τους πίνακες αν λείπουν
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS locations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT,
+                category TEXT,
+                tier TEXT,
+                description TEXT,
+                image_url TEXT,
+                x REAL,
+                y REAL,
+                found BOOLEAN DEFAULT 0,
+                status TEXT DEFAULT 'live'
+            )
+        """)
+        cursor.execute("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)")
+        cursor.execute("CREATE TABLE IF NOT EXISTS user_progress (user_key TEXT, location_id INTEGER, PRIMARY KEY(user_key, location_id))")
 
         # Έλεγχος αν έχουμε ακόμα μόνο τα αρχικά 4 δοκιμαστικά pins
         cursor.execute("SELECT value FROM settings WHERE key = 'official_synced'")
