@@ -227,7 +227,10 @@ def create_checkout_session():
             line_items=[{
                 "price_data": {
                     "currency": "usd",
-                    "product_data": {"name": "GTA 6 Map Tracker - PRO Pass"},
+                    "product_data": {
+                        "name": "GTA 6 Map Tracker - PRO Pass",
+                        "tax_code": "txcd_10000000",  # απαιτείται από το Stripe Managed Payments
+                    },
                     "unit_amount": 999,
                 },
                 "quantity": 1,
