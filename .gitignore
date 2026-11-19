@@ -155,3 +155,8 @@ vite.config.ts.timestamp-*
 .nx/cache
 .nx/workspace-data
 .nx/migrate-runs
+*.db
+__pycache__/
+bot.py
+1.txt
+2.txt
